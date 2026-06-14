@@ -70,7 +70,7 @@ CREATE POLICY "Allow public updates to stickers" ON public.stickers
 
 -- Seed Teams Data (48 Teams - Groups A to L)
 INSERT INTO public.teams (id, name, code, "group", flag) VALUES
-('CZE', 'República Tcheca', 'CZE', 'A', '🇨🇿'),
+('CZE', 'Tchéquia', 'CZE', 'A', '🇨🇿'),
 ('KOR', 'Coreia do Sul', 'KOR', 'A', '🇰🇷'),
 ('MEX', 'México', 'MEX', 'A', '🇲🇽'),
 ('RSA', 'África do Sul', 'RSA', 'A', '🇿🇦'),

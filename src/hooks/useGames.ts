@@ -12,27 +12,47 @@ export function useGames() {
     async function loadGames() {
       setLoading(true);
       try {
-        if (isSupabaseConfigured && supabase) {
-          const { data, error } = await supabase
-            .from("games")
-            .select("*")
-            .order("kickoff", { ascending: true });
+        let loadedFromSupabase = false;
 
-          if (error) throw error;
-          
-          if (data && data.length > 0) {
-            setGames(data as Game[]);
-          } else {
-            // Seed Supabase with initial games if empty
-            const { error: seedError } = await supabase.from("games").insert(MOCK_GAMES);
-            if (seedError) console.error("Error seeding games:", seedError);
-            setGames(MOCK_GAMES);
+        if (isSupabaseConfigured && supabase) {
+          try {
+            const { data, error } = await supabase
+              .from("games")
+              .select("*")
+              .order("kickoff", { ascending: true });
+
+            if (error) throw error;
+            
+            if (data && data.length > 0) {
+              setGames(data as Game[]);
+            } else {
+              // Seed Supabase with initial games if empty
+              const { error: seedError } = await supabase.from("games").insert(MOCK_GAMES);
+              if (seedError) console.error("Error seeding games:", seedError);
+              setGames(MOCK_GAMES);
+            }
+            loadedFromSupabase = true;
+          } catch (dbErr) {
+            console.warn("Supabase games query failed, falling back to LocalStorage:", dbErr);
           }
-        } else {
+        }
+
+        if (!loadedFromSupabase) {
           // LocalStorage fallback
           const localGames = localStorage.getItem("copa2026_games");
           if (localGames) {
-            setGames(JSON.parse(localGames));
+            const parsed = JSON.parse(localGames) as Game[];
+            // If the size is different or first game teams don't match, reload to clear stale cached schedules
+            if (
+              parsed.length !== MOCK_GAMES.length ||
+              parsed[0]?.home_team_id !== MOCK_GAMES[0].home_team_id ||
+              parsed[0]?.away_team_id !== MOCK_GAMES[0].away_team_id
+            ) {
+              setGames(MOCK_GAMES);
+              localStorage.setItem("copa2026_games", JSON.stringify(MOCK_GAMES));
+            } else {
+              setGames(parsed);
+            }
           } else {
             setGames(MOCK_GAMES);
             localStorage.setItem("copa2026_games", JSON.stringify(MOCK_GAMES));
@@ -59,7 +79,10 @@ export function useGames() {
         .from("games")
         .upsert(newGames)
         .then(({ error }) => {
-          if (error) console.error("Error syncing games to DB:", error);
+          if (error) {
+            console.error("Error syncing games to DB, falling back to LocalStorage:", error);
+            localStorage.setItem("copa2026_games", JSON.stringify(newGames));
+          }
         });
     } else {
       localStorage.setItem("copa2026_games", JSON.stringify(newGames));
@@ -226,12 +249,14 @@ export function useGames() {
         goalDifference: s.goalsFor - s.goalsAgainst,
       }));
 
-      // Sort standing standard logic: Points -> GD -> GF -> Alphabetical
+      // Sort standing standard logic: Points -> GD -> GF -> groups.json index order
       standingsArray.sort((a, b) => {
         if (b.points !== a.points) return b.points - a.points;
         if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
         if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-        return a.teamName.localeCompare(b.teamName);
+        const indexA = MOCK_TEAMS.findIndex((t) => t.id === a.teamId);
+        const indexB = MOCK_TEAMS.findIndex((t) => t.id === b.teamId);
+        return indexA - indexB;
       });
 
       map[group] = standingsArray;

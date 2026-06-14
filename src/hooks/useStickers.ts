@@ -21,39 +21,48 @@ export function useStickers() {
     async function loadStickers() {
       setLoading(true);
       try {
+        let loadedFromSupabase = false;
+
         if (isSupabaseConfigured && supabase) {
-          const { data, error } = await supabase
-            .from("stickers")
-            .select("id, checked, code")
-            .eq("checked", true);
-
-          if (error) throw error;
-
-          const stickerMap: Record<string, boolean> = {};
-          const recentList: string[] = [];
-
-          if (data) {
-            data.forEach((item: any) => {
-              stickerMap[item.id] = item.checked;
-            });
-            
-            // Fetch the last 5 updated stickers for stats
-            const { data: recentData } = await supabase
+          try {
+            const { data, error } = await supabase
               .from("stickers")
-              .select("code")
-              .eq("checked", true)
-              .order("updated_at", { ascending: false })
-              .limit(5);
+              .select("id, checked, code")
+              .eq("checked", true);
 
-            if (recentData) {
-              recentData.forEach((item: any) => {
-                recentList.push(item.code);
+            if (error) throw error;
+
+            const stickerMap: Record<string, boolean> = {};
+            const recentList: string[] = [];
+
+            if (data) {
+              data.forEach((item: any) => {
+                stickerMap[item.id] = item.checked;
               });
+              
+              // Fetch the last 5 updated stickers for stats
+              const { data: recentData } = await supabase
+                .from("stickers")
+                .select("code")
+                .eq("checked", true)
+                .order("updated_at", { ascending: false })
+                .limit(5);
+
+              if (recentData) {
+                recentData.forEach((item: any) => {
+                  recentList.push(item.code);
+                });
+              }
             }
+            setStickers(stickerMap);
+            setLastChecked(recentList);
+            loadedFromSupabase = true;
+          } catch (dbErr) {
+            console.warn("Supabase stickers query failed, falling back to LocalStorage:", dbErr);
           }
-          setStickers(stickerMap);
-          setLastChecked(recentList);
-        } else {
+        }
+
+        if (!loadedFromSupabase) {
           // LocalStorage fallback
           const localData = localStorage.getItem("copa2026_stickers");
           const localRecent = localStorage.getItem("copa2026_recent");
@@ -119,7 +128,10 @@ export function useStickers() {
               { onConflict: "id" }
             )
             .then(({ error }) => {
-              if (error) console.error("Database update error:", error);
+              if (error) {
+                console.error("Database update error, saving to LocalStorage:", error);
+                saveToLocal(newStickers, newRecent);
+              }
             });
         } else {
           saveToLocal(newStickers, newRecent);
@@ -164,7 +176,8 @@ export function useStickers() {
           const { error } = await supabase.from("stickers").upsert(teamStickers, { onConflict: "id" });
           if (error) throw error;
         } catch (err) {
-          console.error("Error marking all stickers:", err);
+          console.error("Error marking all stickers in database, saving to LocalStorage:", err);
+          saveToLocal(updatedStickers, newRecent);
         }
       } else {
         saveToLocal(updatedStickers, newRecent);
@@ -205,7 +218,8 @@ export function useStickers() {
           const { error } = await supabase.from("stickers").upsert(teamStickers, { onConflict: "id" });
           if (error) throw error;
         } catch (err) {
-          console.error("Error clearing stickers:", err);
+          console.error("Error clearing stickers in database, saving to LocalStorage:", err);
+          saveToLocal(updatedStickers, newRecent);
         }
       } else {
         saveToLocal(updatedStickers, newRecent);
