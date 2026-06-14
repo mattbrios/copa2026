@@ -16,6 +16,20 @@ export function useGames() {
 
         if (isSupabaseConfigured && supabase) {
           try {
+            // Ensure teams are seeded first (to satisfy games/stickers foreign key constraints)
+            const { data: existingTeams, error: teamsError } = await supabase
+              .from("teams")
+              .select("id")
+              .limit(1);
+
+            if (teamsError) throw teamsError;
+
+            if (!existingTeams || existingTeams.length === 0) {
+              console.log("Teams table is empty. Seeding teams...");
+              const { error: seedTeamsError } = await supabase.from("teams").insert(MOCK_TEAMS);
+              if (seedTeamsError) console.error("Error seeding teams:", seedTeamsError);
+            }
+
             const { data, error } = await supabase
               .from("games")
               .select("*")
@@ -79,6 +93,56 @@ export function useGames() {
     }
 
     loadGames();
+  }, []);
+
+  // Subscribe to real-time game updates from Supabase
+  useEffect(() => {
+    if (isSupabaseConfigured && supabase) {
+      const channel = supabase
+        .channel("games-realtime")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "games" },
+          (payload) => {
+            const newGame = payload.new as any;
+            if (payload.eventType === "UPDATE") {
+              setGames((prev) =>
+                prev.map((g) => {
+                  if (g.id === newGame.id) {
+                    return {
+                      ...newGame,
+                      // Map DB null values back to empty strings for UI compatibility
+                      home_team_id: newGame.home_team_id === null ? "" : newGame.home_team_id,
+                      away_team_id: newGame.away_team_id === null ? "" : newGame.away_team_id,
+                      winner_id: newGame.winner_id === null ? "" : newGame.winner_id,
+                    };
+                  }
+                  return g;
+                })
+              );
+            } else if (payload.eventType === "INSERT") {
+              setGames((prev) => {
+                const exists = prev.some((g) => g.id === newGame.id);
+                const mappedGame = {
+                  ...newGame,
+                  home_team_id: newGame.home_team_id === null ? "" : newGame.home_team_id,
+                  away_team_id: newGame.away_team_id === null ? "" : newGame.away_team_id,
+                  winner_id: newGame.winner_id === null ? "" : newGame.winner_id,
+                };
+                if (exists) {
+                  return prev.map((g) => (g.id === newGame.id ? mappedGame : g));
+                }
+                return [...prev, mappedGame].sort((a, b) => a.kickoff.localeCompare(b.kickoff));
+              });
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase?.removeChannel(channel);
+      };
+    }
   }, []);
 
   // Sync games list helper

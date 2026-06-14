@@ -84,6 +84,54 @@ export function useStickers() {
     loadStickers();
   }, []);
 
+  // Subscribe to real-time stickers updates from Supabase
+  useEffect(() => {
+    if (isSupabaseConfigured && supabase) {
+      const channel = supabase
+        .channel("stickers-realtime")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "stickers" },
+          (payload) => {
+            const newSticker = payload.new as any;
+            const oldSticker = payload.old as any;
+
+            if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+              setStickers((prev) => ({
+                ...prev,
+                [newSticker.id]: newSticker.checked,
+              }));
+
+              if (newSticker.checked) {
+                // Add to recent if not already there, limit to 5
+                setLastChecked((prev) => [
+                  newSticker.code,
+                  ...prev.filter((c) => c !== newSticker.code)
+                ].slice(0, 5));
+              } else {
+                // Remove from recent
+                setLastChecked((prev) => prev.filter((c) => c !== newSticker.code));
+              }
+            } else if (payload.eventType === "DELETE") {
+              setStickers((prev) => {
+                const updated = { ...prev };
+                delete updated[oldSticker.id];
+                return updated;
+              });
+              if (oldSticker && oldSticker.code) {
+                setLastChecked((prev) => prev.filter((c) => c !== oldSticker.code));
+              }
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase?.removeChannel(channel);
+      };
+    }
+  }, []);
+
   // Update localStorage helper
   const saveToLocal = useCallback((updatedStickers: Record<string, boolean>, updatedRecent: string[]) => {
     localStorage.setItem("copa2026_stickers", JSON.stringify(updatedStickers));

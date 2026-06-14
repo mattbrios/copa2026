@@ -123,3 +123,7 @@ ON CONFLICT (id) DO UPDATE SET
     code = EXCLUDED.code,
     "group" = EXCLUDED."group",
     flag = EXCLUDED.flag;
+
+-- Enable replication for realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE public.stickers;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.games;
