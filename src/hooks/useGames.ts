@@ -24,10 +24,23 @@ export function useGames() {
             if (error) throw error;
             
             if (data && data.length > 0) {
-              setGames(data as Game[]);
+              // Parse null values from DB correctly to empty strings for UI compatibility
+              const gamesList = data.map((g: any) => ({
+                ...g,
+                home_team_id: g.home_team_id === null ? "" : g.home_team_id,
+                away_team_id: g.away_team_id === null ? "" : g.away_team_id,
+                winner_id: g.winner_id === null ? "" : g.winner_id,
+              }));
+              setGames(gamesList as Game[]);
             } else {
-              // Seed Supabase with initial games if empty
-              const { error: seedError } = await supabase.from("games").insert(MOCK_GAMES);
+              // Seed Supabase with initial games if empty, sanitizing empty strings to null for DB foreign keys
+              const sanitizedSeed = MOCK_GAMES.map((g) => ({
+                ...g,
+                home_team_id: g.home_team_id === "" ? null : g.home_team_id,
+                away_team_id: g.away_team_id === "" ? null : g.away_team_id,
+                winner_id: g.winner_id === "" || !g.winner_id ? null : g.winner_id,
+              }));
+              const { error: seedError } = await supabase.from("games").insert(sanitizedSeed);
               if (seedError) console.error("Error seeding games:", seedError);
               setGames(MOCK_GAMES);
             }
@@ -74,10 +87,17 @@ export function useGames() {
     if (isSupabaseConfigured && supabase) {
       // For production, we can update individual records, 
       // but for simulation, we update the whole list or individual upserts.
-      // Let's upsert all updated records asynchronously
+      // Let's upsert all updated records asynchronously, sanitizing empty strings to null for DB foreign keys
+      const sanitized = newGames.map((g) => ({
+        ...g,
+        home_team_id: g.home_team_id === "" ? null : g.home_team_id,
+        away_team_id: g.away_team_id === "" ? null : g.away_team_id,
+        winner_id: g.winner_id === "" || !g.winner_id ? null : g.winner_id,
+      }));
+
       supabase
         .from("games")
-        .upsert(newGames)
+        .upsert(sanitized)
         .then(({ error }) => {
           if (error) {
             console.error("Error syncing games to DB, falling back to LocalStorage:", error);
