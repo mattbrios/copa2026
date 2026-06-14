@@ -48,14 +48,20 @@ ALTER TABLE public.games ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow public read access to teams" ON public.teams
     FOR SELECT USING (true);
 
-CREATE POLICY "Allow all writes to teams for service_role/admin" ON public.teams
-    USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public inserts to teams" ON public.teams
+    FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow public updates to teams" ON public.teams
+    FOR UPDATE USING (true) WITH CHECK (true);
 
 -- RLS Policies for Games
 CREATE POLICY "Allow public read access to games" ON public.games
     FOR SELECT USING (true);
 
-CREATE POLICY "Allow public updates to games (for simulations/live results)" ON public.games
+CREATE POLICY "Allow public inserts to games" ON public.games
+    FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow public updates to games" ON public.games
     FOR UPDATE USING (true) WITH CHECK (true);
 
 -- RLS Policies for Stickers
