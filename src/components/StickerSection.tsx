@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { MOCK_TEAMS, getStickerCount } from "@/lib/mockData";
 import { STICKER_THEMES, StickerVariant } from "@/lib/stickerTheme";
-import { buildMissingStickersMessage } from "@/lib/missingStickersMessage";
+import { buildMissingStickersMessage, buildRepeatedStickersMessage } from "@/lib/stickerShareMessage";
 import { Check, ChevronDown, ChevronUp, CheckSquare, Square } from "lucide-react";
 
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -129,8 +129,9 @@ export function StickerSection({
     return <div className="grid grid-cols-4 gap-2.5 mt-3 animate-scale-in">{buttons}</div>;
   };
 
-  const handleSendMissing = () => {
-    const message = buildMissingStickersMessage(stickers);
+  const handleSendReport = () => {
+    const message =
+      variant === "album" ? buildMissingStickersMessage(stickers) : buildRepeatedStickersMessage(stickers);
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
   };
 
@@ -239,15 +240,13 @@ export function StickerSection({
         )}
       </div>
 
-      {variant === "album" && (
-        <button
-          onClick={handleSendMissing}
-          className="flex items-center justify-center gap-2 py-3 px-4 bg-whatsapp hover:bg-whatsapp/90 text-white rounded-xl text-sm font-semibold smooth-transition active:scale-95 cursor-pointer shadow-lg shadow-whatsapp/20"
-        >
-          <WhatsAppIcon className="h-4.5 w-4.5" />
-          <span>Enviar faltantes</span>
-        </button>
-      )}
+      <button
+        onClick={handleSendReport}
+        className="flex items-center justify-center gap-2 py-3 px-4 bg-whatsapp hover:bg-whatsapp/90 text-white rounded-xl text-sm font-semibold smooth-transition active:scale-95 cursor-pointer shadow-lg shadow-whatsapp/20"
+      >
+        <WhatsAppIcon className="h-4.5 w-4.5" />
+        <span>{variant === "album" ? "Enviar faltantes" : "Enviar minhas repetidas"}</span>
+      </button>
     </div>
   );
 }
