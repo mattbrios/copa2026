@@ -10,6 +10,7 @@
   --color-brand-danger: #450A0A;
   --color-brand-danger-strong: #DC2626;
   --color-brand-danger-vivid: #FF3B30;
+  --color-whatsapp: #25D366;
 
   --animate-scale-in: scaleIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
