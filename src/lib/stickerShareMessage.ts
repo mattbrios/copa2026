@@ -3,6 +3,7 @@ import { MOCK_TEAMS, getStickerCount } from "@/lib/mockData";
 function buildStickerReportMessage(
   stickers: Record<string, boolean>,
   emoji: string,
+  label: string,
   include: (isChecked: boolean) => boolean
 ): string {
   const lines = ["🏆 Copa 2026"];
@@ -22,7 +23,7 @@ function buildStickerReportMessage(
     }
   });
 
-  lines.push(`${emoji} FIGURINHAS FALTANDO (${total})`);
+  lines.push(`${emoji} ${label} (${total})`);
   lines.push("─────────────");
   lines.push(teamBlocks.join("\n\n"));
 
@@ -30,9 +31,9 @@ function buildStickerReportMessage(
 }
 
 export function buildMissingStickersMessage(stickers: Record<string, boolean>): string {
-  return buildStickerReportMessage(stickers, "❌", (isChecked) => !isChecked);
+  return buildStickerReportMessage(stickers, "❌", "FIGURINHAS FALTANDO", (isChecked) => !isChecked);
 }
 
 export function buildRepeatedStickersMessage(stickers: Record<string, boolean>): string {
-  return buildStickerReportMessage(stickers, "🔁", (isChecked) => isChecked);
+  return buildStickerReportMessage(stickers, "🔁", "FIGURINHAS REPETIDAS", (isChecked) => isChecked);
 }

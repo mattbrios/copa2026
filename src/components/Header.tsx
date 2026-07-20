@@ -55,26 +55,26 @@ export function Header({ title, stats, isLocalFallback, variant = "album" }: Hea
         </button>
       </div>
 
-      {/* Progress bar */}
-      {variant === "album" && (
-        <div className="mt-3">
-          <div className="flex items-center justify-between text-xs text-gray-400 font-medium mb-1">
-            <span>Progresso Geral</span>
-            <div className="flex items-center gap-1.5 font-semibold text-white">
-              <span>{stats.checked} / {stats.total}</span>
-              <span className={theme.accentText}>({stats.percentage}%)</span>
-            </div>
+      {/* Progress */}
+      <div className="mt-3">
+        <div className="flex items-center justify-between text-xs text-gray-400 font-medium mb-1">
+          <span>Progresso Geral</span>
+          <div className="flex items-center gap-1.5 font-semibold text-white">
+            <span>{stats.checked} / {stats.total}</span>
+            <span className={theme.accentText}>({stats.percentage}%)</span>
           </div>
+        </div>
 
-          {/* Progress bar container */}
+        {/* Progress bar container */}
+        {variant === "album" && (
           <div className="w-full h-2 bg-[#1C1C1C] rounded-full overflow-hidden border border-white/5">
             <div
               style={{ width: `${stats.percentage}%` }}
               className={`h-full bg-gradient-to-r rounded-full smooth-transition relative ${theme.progressGradient}`}
             />
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Quick stats drawer overlay */}
       {showStatsModal && (

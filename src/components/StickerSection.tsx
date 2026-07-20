@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { MOCK_TEAMS, getStickerCount } from "@/lib/mockData";
 import { STICKER_THEMES, StickerVariant } from "@/lib/stickerTheme";
 import { buildMissingStickersMessage, buildRepeatedStickersMessage } from "@/lib/stickerShareMessage";
-import { Check, ChevronDown, ChevronUp, CheckSquare, Square } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, CheckSquare, Square, Filter } from "lucide-react";
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -36,6 +36,7 @@ export function StickerSection({
   const theme = STICKER_THEMES[variant];
   const [selectedGroup, setSelectedGroup] = useState<string>("ALL");
   const [expandedTeams, setExpandedTeams] = useState<Record<string, boolean>>({});
+  const [onlyWithRepeated, setOnlyWithRepeated] = useState(false);
 
   const groups = ["ALL", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
@@ -54,6 +55,11 @@ export function StickerSection({
     // Filter by group tab
     if (selectedGroup !== "ALL") {
       result = result.filter((t) => t.group === selectedGroup);
+    }
+
+    // Filter to only teams with at least one repeated sticker checked
+    if (onlyWithRepeated) {
+      result = result.filter((t) => getTeamProgress(t.id).checked > 0);
     }
 
     // Filter by search query
@@ -80,7 +86,7 @@ export function StickerSection({
     }
 
     return result;
-  }, [selectedGroup, searchQuery]);
+  }, [selectedGroup, searchQuery, onlyWithRepeated, getTeamProgress]);
 
   // Auto-expand teams if there is a search query
   useEffect(() => {
@@ -153,6 +159,21 @@ export function StickerSection({
           </button>
         ))}
       </div>
+
+      {/* Filter: only teams with repeated stickers */}
+      {variant === "repeated" && (
+        <button
+          onClick={() => setOnlyWithRepeated((prev) => !prev)}
+          className={`self-start flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-bold smooth-transition cursor-pointer ${
+            onlyWithRepeated
+              ? theme.groupActive
+              : `${theme.cardBg} border ${theme.cardBorder} text-gray-400 hover:text-gray-200`
+          }`}
+        >
+          <Filter className="h-3.5 w-3.5" />
+          <span>Somente com repetidas</span>
+        </button>
+      )}
 
       {/* Grid of Team Cards */}
       <div className="flex flex-col gap-3.5">
