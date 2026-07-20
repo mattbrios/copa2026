@@ -5,37 +5,19 @@ import { Header } from "@/components/Header";
 import { BottomNavigation, TabType } from "@/components/BottomNavigation";
 import { SearchInput } from "@/components/SearchInput";
 import { StickerSection } from "@/components/StickerSection";
-import { GamesSection } from "@/components/GamesSection";
-import { StandingsSection } from "@/components/StandingsSection";
 import { useStickers } from "@/hooks/useStickers";
-import { useGames } from "@/hooks/useGames";
-import { AlertCircle } from "lucide-react";
+import { useRepeatedStickers } from "@/hooks/useRepeatedStickers";
+import { STICKER_THEMES } from "@/lib/stickerTheme";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabType>("album");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [albumSearch, setAlbumSearch] = useState("");
+  const [repeatedSearch, setRepeatedSearch] = useState("");
 
-  const {
-    stickers,
-    loading: loadingStickers,
-    stats,
-    toggleSticker,
-    markAll,
-    clearAll,
-    getTeamProgress,
-    isLocalFallback: stickersLocal,
-  } = useStickers();
+  const album = useStickers();
+  const repeated = useRepeatedStickers();
 
-  const {
-    games,
-    loading: loadingGames,
-    standings,
-    updateGameScore,
-    isLocalFallback: gamesLocal,
-  } = useGames();
-
-  const loading = loadingStickers || loadingGames;
-  const isLocalFallback = stickersLocal || gamesLocal;
+  const loading = album.loading || repeated.loading;
 
   // Render loading skeleton
   if (loading) {
@@ -77,42 +59,41 @@ export default function Home() {
     );
   }
 
+  const isAlbum = activeTab === "album";
+  const current = isAlbum ? album : repeated;
+  const searchQuery = isAlbum ? albumSearch : repeatedSearch;
+  const setSearchQuery = isAlbum ? setAlbumSearch : setRepeatedSearch;
+  const theme = STICKER_THEMES[activeTab];
+
   return (
-    <div className="flex-1 flex flex-col max-w-md mx-auto w-full bg-background min-h-screen relative shadow-2xl border-x border-card-border/50">
+    <div
+      className={`flex-1 flex flex-col max-w-md mx-auto w-full ${theme.pageBg} min-h-screen relative shadow-2xl border-x ${theme.cardBorder} smooth-transition`}
+    >
       {/* Top Header */}
       <Header
-        activeTab={activeTab}
-        stats={stats}
-        isLocalFallback={isLocalFallback}
+        title={isAlbum ? "Álbum de Figurinhas" : "Figurinhas Repetidas"}
+        stats={current.stats}
+        isLocalFallback={current.isLocalFallback}
+        variant={activeTab}
       />
 
       {/* Main Content Area */}
       <main className="flex-grow overflow-y-auto no-scrollbar">
-        {activeTab === "album" && (
-          <>
-            {/* Inline search box */}
-            <div className="px-4 pt-3">
-              <SearchInput value={searchQuery} onChange={setSearchQuery} />
-            </div>
-            
-            <StickerSection
-              stickers={stickers}
-              toggleSticker={toggleSticker}
-              markAll={markAll}
-              clearAll={clearAll}
-              getTeamProgress={getTeamProgress}
-              searchQuery={searchQuery}
-            />
-          </>
-        )}
+        {/* Inline search box */}
+        <div className="px-4 pt-3">
+          <SearchInput value={searchQuery} onChange={setSearchQuery} variant={activeTab} />
+        </div>
 
-        {activeTab === "games" && (
-          <GamesSection games={games} updateGameScore={updateGameScore} />
-        )}
-
-        {activeTab === "standings" && (
-          <StandingsSection standings={standings} games={games} />
-        )}
+        <StickerSection
+          key={activeTab}
+          stickers={current.stickers}
+          toggleSticker={current.toggleSticker}
+          markAll={current.markAll}
+          clearAll={current.clearAll}
+          getTeamProgress={current.getTeamProgress}
+          searchQuery={searchQuery}
+          variant={activeTab}
+        />
       </main>
 
       {/* Bottom Sticky Navigation */}

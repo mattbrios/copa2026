@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { STICKERS_PER_TEAM, MOCK_TEAMS } from "@/lib/mockData";
+import { MOCK_TEAMS, getStickerCount } from "@/lib/mockData";
+import { STICKER_THEMES, StickerVariant } from "@/lib/stickerTheme";
 import { Check, ChevronDown, ChevronUp, CheckSquare, Square } from "lucide-react";
 
 interface StickerSectionProps {
@@ -11,6 +12,7 @@ interface StickerSectionProps {
   clearAll: (teamId: string) => Promise<void>;
   getTeamProgress: (teamId: string) => { checked: number; total: number; percentage: number };
   searchQuery: string;
+  variant?: StickerVariant;
 }
 
 export function StickerSection({
@@ -20,7 +22,9 @@ export function StickerSection({
   clearAll,
   getTeamProgress,
   searchQuery,
+  variant = "album",
 }: StickerSectionProps) {
+  const theme = STICKER_THEMES[variant];
   const [selectedGroup, setSelectedGroup] = useState<string>("ALL");
   const [expandedTeams, setExpandedTeams] = useState<Record<string, boolean>>({});
 
@@ -54,7 +58,7 @@ export function StickerSection({
         // Check if query is looking for a sticker code like "BRA 10" or "BRA10"
         const cleanQuery = q.replace(/\s+/g, "");
         let stickerMatch = false;
-        for (let i = 1; i <= STICKERS_PER_TEAM; i++) {
+        for (let i = 1; i <= getStickerCount(team); i++) {
           const stickerCode = `${team.code}${i}`.toLowerCase();
           if (stickerCode.includes(cleanQuery)) {
             stickerMatch = true;
@@ -81,11 +85,11 @@ export function StickerSection({
   }, [searchQuery, filteredTeams]);
 
   // Render sticker grid buttons
-  const renderStickerGrid = (teamId: string, teamCode: string) => {
+  const renderStickerGrid = (teamId: string, teamCode: string, stickerCount: number) => {
     const buttons = [];
     const qClean = searchQuery.toLowerCase().trim().replace(/\s+/g, "");
 
-    for (let i = 1; i <= STICKERS_PER_TEAM; i++) {
+    for (let i = 1; i <= stickerCount; i++) {
       const stickerId = `${teamId}_${i}`;
       const stickerCode = `${teamCode} ${i}`;
       const isChecked = stickers[stickerId] || false;
@@ -103,7 +107,7 @@ export function StickerSection({
           disabled={!matchesSearch && !!searchQuery}
           className={`flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-semibold select-none border transition-all active:scale-95 cursor-pointer duration-150 ${
             isChecked
-              ? "bg-brand-success border-brand-success text-white shadow-md shadow-brand-success/15"
+              ? theme.checkedSticker
               : "bg-[#1E1E1E] border-card-border hover:border-gray-700 text-gray-300"
           } ${!matchesSearch && !!searchQuery ? "opacity-25" : "opacity-100"}`}
         >
@@ -126,8 +130,8 @@ export function StickerSection({
             onClick={() => setSelectedGroup(group)}
             className={`py-1.5 px-4 rounded-xl text-xs font-bold shrink-0 smooth-transition cursor-pointer ${
               selectedGroup === group
-                ? "bg-brand-accent text-white shadow-md shadow-brand-accent/20"
-                : "bg-card-bg border border-card-border text-gray-400 hover:text-gray-200"
+                ? theme.groupActive
+                : `${theme.cardBg} border ${theme.cardBorder} text-gray-400 hover:text-gray-200`
             }`}
           >
             {group === "ALL" ? "Todos" : `Grupo ${group}`}
@@ -145,7 +149,7 @@ export function StickerSection({
             return (
               <div
                 key={team.id}
-                className="bg-card-bg border border-card-border rounded-2xl overflow-hidden smooth-transition hover:border-gray-800"
+                className={`${theme.cardBg} border ${theme.cardBorder} rounded-2xl overflow-hidden smooth-transition hover:border-gray-800`}
               >
                 {/* Team Card Header */}
                 <div
@@ -169,7 +173,7 @@ export function StickerSection({
                     <span
                       className={`text-xs font-bold py-1 px-2.5 rounded-lg ${
                         progress.percentage === 100
-                          ? "bg-brand-success/15 text-brand-success border border-brand-success/25"
+                          ? theme.completeBadge
                           : "bg-[#1E1E1E] text-gray-400 border border-card-border"
                       }`}
                     >
@@ -185,12 +189,12 @@ export function StickerSection({
 
                 {/* Sticker grid (Revealed when expanded) */}
                 {isExpanded && (
-                  <div className="px-4 pb-4 border-t border-card-border bg-[#0E0E0E60] animate-scale-in">
+                  <div className={`px-4 pb-4 border-t ${theme.cardBorder} ${theme.expandedBg} animate-scale-in`}>
                     {/* Action buttons (Select all / Clear all) */}
                     <div className="flex items-center justify-end gap-3 pt-3">
                       <button
                         onClick={() => markAll(team.id)}
-                        className="flex items-center gap-1.5 text-xs text-brand-success bg-brand-success/10 border border-brand-success/10 py-1.5 px-3 rounded-lg active:scale-95 smooth-transition hover:bg-brand-success/15 cursor-pointer font-medium"
+                        className={`flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-lg active:scale-95 smooth-transition cursor-pointer font-medium ${theme.markAllBtn}`}
                       >
                         <CheckSquare className="h-3.5 w-3.5" />
                         <span>Marcar Todas</span>
@@ -204,7 +208,7 @@ export function StickerSection({
                       </button>
                     </div>
 
-                    {renderStickerGrid(team.id, team.code)}
+                    {renderStickerGrid(team.id, team.code, getStickerCount(team))}
                   </div>
                 )}
               </div>

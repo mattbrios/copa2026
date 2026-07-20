@@ -2,37 +2,26 @@
 
 import { useState } from "react";
 import { StickerStats } from "@/hooks/useStickers";
+import { STICKER_THEMES, StickerVariant } from "@/lib/stickerTheme";
 import { Trophy, CheckCircle2, History, Database, WifiOff } from "lucide-react";
 
 interface HeaderProps {
-  activeTab: string;
+  title: string;
   stats: StickerStats;
   isLocalFallback: boolean;
+  variant?: StickerVariant;
 }
 
-export function Header({ activeTab, stats, isLocalFallback }: HeaderProps) {
+export function Header({ title, stats, isLocalFallback, variant = "album" }: HeaderProps) {
   const [showStatsModal, setShowStatsModal] = useState(false);
-
-  // Translate tab name to friendly title
-  const getTitle = () => {
-    switch (activeTab) {
-      case "album":
-        return "Álbum de Figurinhas";
-      case "games":
-        return "Tabela de Jogos";
-      case "standings":
-        return "Classificação & Fases";
-      default:
-        return "Copa 2026";
-    }
-  };
+  const theme = STICKER_THEMES[variant];
 
   return (
-    <header className="sticky top-0 z-30 bg-[#0B0B0BE0] backdrop-blur-md border-b border-card-border px-4 pt-4 pb-3">
+    <header className={`sticky top-0 z-30 ${theme.headerBg} backdrop-blur-md border-b ${theme.cardBorder} px-4 pt-4 pb-3`}>
       {/* Top row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Trophy className="h-6 w-6 text-brand-accent animate-pulse-slow" />
+          <Trophy className={`h-6 w-6 ${theme.accentText} animate-pulse-slow`} />
           <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
             Copa 2026
           </h1>
@@ -56,44 +45,42 @@ export function Header({ activeTab, stats, isLocalFallback }: HeaderProps) {
 
       {/* Title block */}
       <div className="mt-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-300">{getTitle()}</h2>
-        {activeTab === "album" && (
-          <button
-            onClick={() => setShowStatsModal(!showStatsModal)}
-            className="flex items-center gap-1 text-xs text-brand-accent font-medium bg-brand-accent/10 py-1 px-2.5 rounded-lg active:scale-95 smooth-transition hover:bg-brand-accent/20 cursor-pointer"
-          >
-            <History className="h-3.5 w-3.5" />
-            <span>Estatísticas</span>
-          </button>
-        )}
+        <h2 className="text-sm font-semibold text-gray-300">{title}</h2>
+        <button
+          onClick={() => setShowStatsModal(!showStatsModal)}
+          className={`flex items-center gap-1 text-xs font-medium py-1 px-2.5 rounded-lg active:scale-95 smooth-transition cursor-pointer ${theme.accentText} ${theme.accentBg}`}
+        >
+          <History className="h-3.5 w-3.5" />
+          <span>Estatísticas</span>
+        </button>
       </div>
 
-      {/* Album progress bar */}
-      {activeTab === "album" && (
+      {/* Progress bar */}
+      {variant === "album" && (
         <div className="mt-3">
           <div className="flex items-center justify-between text-xs text-gray-400 font-medium mb-1">
             <span>Progresso Geral</span>
             <div className="flex items-center gap-1.5 font-semibold text-white">
               <span>{stats.checked} / {stats.total}</span>
-              <span className="text-brand-success">({stats.percentage}%)</span>
+              <span className={theme.accentText}>({stats.percentage}%)</span>
             </div>
           </div>
-          
+
           {/* Progress bar container */}
           <div className="w-full h-2 bg-[#1C1C1C] rounded-full overflow-hidden border border-white/5">
             <div
               style={{ width: `${stats.percentage}%` }}
-              className="h-full bg-gradient-to-r from-brand-success to-emerald-400 rounded-full smooth-transition relative shadow-[0_0_8px_#10B981A0]"
+              className={`h-full bg-gradient-to-r rounded-full smooth-transition relative ${theme.progressGradient}`}
             />
           </div>
         </div>
       )}
 
       {/* Quick stats drawer overlay */}
-      {activeTab === "album" && showStatsModal && (
-        <div className="absolute top-full left-0 right-0 m-4 p-4 bg-card-bg border border-card-border rounded-2xl shadow-2xl glass-panel animate-scale-in flex flex-col gap-4 text-sm z-50">
-          <div className="flex items-center justify-between border-b border-card-border pb-2">
-            <h4 className="font-semibold text-white">Resumo do Álbum</h4>
+      {showStatsModal && (
+        <div className={`absolute top-full left-0 right-0 m-4 p-4 ${theme.cardBg} border ${theme.cardBorder} rounded-2xl shadow-2xl glass-panel animate-scale-in flex flex-col gap-4 text-sm z-50`}>
+          <div className={`flex items-center justify-between border-b ${theme.cardBorder} pb-2`}>
+            <h4 className="font-semibold text-white">Resumo</h4>
             <button
               onClick={() => setShowStatsModal(false)}
               className="text-xs text-gray-400 hover:text-white"
@@ -106,11 +93,11 @@ export function Header({ activeTab, stats, isLocalFallback }: HeaderProps) {
             <div className="bg-[#1C1C1C] border border-card-border rounded-xl p-3 flex flex-col gap-1">
               <span className="text-xs text-gray-400">Total Preenchido</span>
               <span className="text-lg font-bold text-white flex items-center gap-1.5">
-                <CheckCircle2 className="h-4.5 w-4.5 text-brand-success" />
+                <CheckCircle2 className={`h-4.5 w-4.5 ${theme.accentText}`} />
                 {stats.checked}
               </span>
             </div>
-            
+
             <div className="bg-[#1C1C1C] border border-card-border rounded-xl p-3 flex flex-col gap-1">
               <span className="text-xs text-gray-400">Faltando</span>
               <span className="text-lg font-bold text-gray-200">
@@ -127,8 +114,8 @@ export function Header({ activeTab, stats, isLocalFallback }: HeaderProps) {
                   <span className="text-lg">{stats.mostCompletedTeam.flag}</span>
                   {stats.mostCompletedTeam.name}
                 </span>
-                <span className="text-brand-success font-semibold">
-                  {stats.mostCompletedTeam.count} / 20
+                <span className={`font-semibold ${theme.accentText}`}>
+                  {stats.mostCompletedTeam.count} / {stats.mostCompletedTeam.total}
                 </span>
               </div>
             </div>
@@ -141,7 +128,7 @@ export function Header({ activeTab, stats, isLocalFallback }: HeaderProps) {
                 {stats.lastChecked.map((code) => (
                   <span
                     key={code}
-                    className="text-xs bg-brand-success/10 border border-brand-success/20 text-brand-success px-2 py-0.5 rounded-full font-medium"
+                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${theme.accentText} ${theme.accentBg}`}
                   >
                     {code}
                   </span>

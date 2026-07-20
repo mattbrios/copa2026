@@ -1,8 +1,9 @@
 "use client";
 
-import { Book, CalendarDays, Trophy } from "lucide-react";
+import { Book, Copy } from "lucide-react";
+import { STICKER_THEMES } from "@/lib/stickerTheme";
 
-export type TabType = "album" | "games" | "standings";
+export type TabType = "album" | "repeated";
 
 interface BottomNavigationProps {
   activeTab: TabType;
@@ -12,8 +13,7 @@ interface BottomNavigationProps {
 export function BottomNavigation({ activeTab, setActiveTab }: BottomNavigationProps) {
   const navItems = [
     { id: "album", label: "Álbum", icon: Book },
-    { id: "games", label: "Jogos", icon: CalendarDays },
-    { id: "standings", label: "Classificação", icon: Trophy },
+    { id: "repeated", label: "Repetidas", icon: Copy },
   ] as const;
 
   return (
@@ -21,15 +21,14 @@ export function BottomNavigation({ activeTab, setActiveTab }: BottomNavigationPr
       {navItems.map((item) => {
         const Icon = item.icon;
         const isActive = activeTab === item.id;
+        const theme = STICKER_THEMES[item.id];
 
         return (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
             className={`flex flex-col items-center gap-1.5 py-1 px-5 rounded-2xl smooth-transition active:scale-90 cursor-pointer ${
-              isActive
-                ? "text-brand-accent bg-brand-accent/10"
-                : "text-gray-400 hover:text-gray-200"
+              isActive ? `${theme.accentText} ${theme.accentBg}` : "text-gray-400 hover:text-gray-200"
             }`}
           >
             <Icon className={`h-5 w-5 smooth-transition ${isActive ? "scale-110" : ""}`} />

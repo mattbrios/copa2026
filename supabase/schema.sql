@@ -18,6 +18,16 @@ CREATE TABLE IF NOT EXISTS public.stickers (
     user_id UUID DEFAULT NULL -- Optional, for future authentication features
 );
 
+-- Create repeated_stickers table (independent duplicate-tracking collection, mirrors "stickers")
+CREATE TABLE IF NOT EXISTS public.repeated_stickers (
+    id TEXT PRIMARY KEY, -- e.g. "BRA_1", "BRA_10"
+    team_id TEXT REFERENCES public.teams(id) ON DELETE CASCADE,
+    code TEXT NOT NULL, -- e.g. "BRA 1", "BRA 10"
+    checked BOOLEAN DEFAULT false NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    user_id UUID DEFAULT NULL -- Optional, for future authentication features
+);
+
 -- Create games table
 CREATE TABLE IF NOT EXISTS public.games (
     id TEXT PRIMARY KEY, -- e.g. "game_1" to "game_104"
@@ -42,6 +52,7 @@ CREATE TABLE IF NOT EXISTS public.games (
 -- Enable Row Level Security (RLS)
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stickers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.repeated_stickers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.games ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for Teams
@@ -72,6 +83,16 @@ CREATE POLICY "Allow public inserts to stickers" ON public.stickers
     FOR INSERT WITH CHECK (true);
 
 CREATE POLICY "Allow public updates to stickers" ON public.stickers
+    FOR UPDATE USING (true) WITH CHECK (true);
+
+-- RLS Policies for Repeated Stickers
+CREATE POLICY "Allow public read access to repeated_stickers" ON public.repeated_stickers
+    FOR SELECT USING (true);
+
+CREATE POLICY "Allow public inserts to repeated_stickers" ON public.repeated_stickers
+    FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow public updates to repeated_stickers" ON public.repeated_stickers
     FOR UPDATE USING (true) WITH CHECK (true);
 
 -- Seed Teams Data (48 Teams - Groups A to L)
@@ -123,8 +144,10 @@ INSERT INTO public.teams (id, name, code, "group", flag) VALUES
 ('CRO', 'Croácia', 'CRO', 'L', '🇭🇷'),
 ('ENG', 'Inglaterra', 'ENG', 'L', '🏴'),
 ('GHA', 'Gana', 'GHA', 'L', '🇬🇭'),
-('PAN', 'Panamá', 'PAN', 'L', '🇵🇦')
-ON CONFLICT (id) DO UPDATE SET 
+('PAN', 'Panamá', 'PAN', 'L', '🇵🇦'),
+('FWC', 'FIFA', 'FWC', 'X', '⚽'),
+('CC', 'Coca-Cola', 'CC', 'X', '🥤')
+ON CONFLICT (id) DO UPDATE SET
     name = EXCLUDED.name,
     code = EXCLUDED.code,
     "group" = EXCLUDED."group",
@@ -132,4 +155,5 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Enable replication for realtime
 ALTER PUBLICATION supabase_realtime ADD TABLE public.stickers;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.repeated_stickers;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.games;

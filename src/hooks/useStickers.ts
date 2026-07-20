@@ -1,17 +1,30 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
-import { MOCK_TEAMS, STICKERS_PER_TEAM } from "@/lib/mockData";
-import { Sticker } from "@/types";
+import { MOCK_TEAMS, STICKERS_PER_TEAM, getStickerCount } from "@/lib/mockData";
 
 export interface StickerStats {
   total: number;
   checked: number;
   percentage: number;
-  mostCompletedTeam: { name: string; flag: string; count: number } | null;
+  mostCompletedTeam: { name: string; flag: string; count: number; total: number } | null;
   lastChecked: string[]; // List of sticker codes
 }
 
-export function useStickers() {
+interface StickerCollectionConfig {
+  table: string;
+  storageKey: string;
+  recentStorageKey: string;
+  realtimeChannel: string;
+}
+
+// Shared implementation behind independent sticker collections (e.g. album vs repeated),
+// each backed by its own Supabase table / localStorage keys / realtime channel.
+export function useStickerCollection({
+  table,
+  storageKey,
+  recentStorageKey,
+  realtimeChannel,
+}: StickerCollectionConfig) {
   const [stickers, setStickers] = useState<Record<string, boolean>>({});
   const [lastChecked, setLastChecked] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +39,7 @@ export function useStickers() {
         if (isSupabaseConfigured && supabase) {
           try {
             const { data, error } = await supabase
-              .from("stickers")
+              .from(table)
               .select("id, checked, code")
               .eq("checked", true);
 
@@ -39,10 +52,10 @@ export function useStickers() {
               data.forEach((item: any) => {
                 stickerMap[item.id] = item.checked;
               });
-              
+
               // Fetch the last 5 updated stickers for stats
               const { data: recentData } = await supabase
-                .from("stickers")
+                .from(table)
                 .select("code")
                 .eq("checked", true)
                 .order("updated_at", { ascending: false })
@@ -58,15 +71,15 @@ export function useStickers() {
             setLastChecked(recentList);
             loadedFromSupabase = true;
           } catch (dbErr) {
-            console.warn("Supabase stickers query failed, falling back to LocalStorage:", dbErr);
+            console.warn(`Supabase ${table} query failed, falling back to LocalStorage:`, dbErr);
           }
         }
 
         if (!loadedFromSupabase) {
           // LocalStorage fallback
-          const localData = localStorage.getItem("copa2026_stickers");
-          const localRecent = localStorage.getItem("copa2026_recent");
-          
+          const localData = localStorage.getItem(storageKey);
+          const localRecent = localStorage.getItem(recentStorageKey);
+
           if (localData) {
             setStickers(JSON.parse(localData));
           }
@@ -75,23 +88,23 @@ export function useStickers() {
           }
         }
       } catch (err) {
-        console.error("Error loading stickers:", err);
+        console.error(`Error loading ${table}:`, err);
       } finally {
         setLoading(false);
       }
     }
 
     loadStickers();
-  }, []);
+  }, [table, storageKey, recentStorageKey]);
 
   // Subscribe to real-time stickers updates from Supabase
   useEffect(() => {
     if (isSupabaseConfigured && supabase) {
       const channel = supabase
-        .channel("stickers-realtime")
+        .channel(realtimeChannel)
         .on(
           "postgres_changes",
-          { event: "*", schema: "public", table: "stickers" },
+          { event: "*", schema: "public", table },
           (payload) => {
             const newSticker = payload.new as any;
             const oldSticker = payload.old as any;
@@ -130,20 +143,20 @@ export function useStickers() {
         supabase?.removeChannel(channel);
       };
     }
-  }, []);
+  }, [table, realtimeChannel]);
 
   // Update localStorage helper
   const saveToLocal = useCallback((updatedStickers: Record<string, boolean>, updatedRecent: string[]) => {
-    localStorage.setItem("copa2026_stickers", JSON.stringify(updatedStickers));
-    localStorage.setItem("copa2026_recent", JSON.stringify(updatedRecent));
-  }, []);
+    localStorage.setItem(storageKey, JSON.stringify(updatedStickers));
+    localStorage.setItem(recentStorageKey, JSON.stringify(updatedRecent));
+  }, [storageKey, recentStorageKey]);
 
   // Toggle single sticker checked status
   const toggleSticker = useCallback(
     async (teamId: string, num: number) => {
       const stickerId = `${teamId}_${num}`;
       const code = `${teamId} ${num}`;
-      
+
       setStickers((prev) => {
         const isCurrentChecked = prev[stickerId] || false;
         const nextChecked = !isCurrentChecked;
@@ -164,7 +177,7 @@ export function useStickers() {
         // Async save to database
         if (isSupabaseConfigured && supabase) {
           supabase
-            .from("stickers")
+            .from(table)
             .upsert(
               {
                 id: stickerId,
@@ -188,7 +201,7 @@ export function useStickers() {
         return newStickers;
       });
     },
-    [lastChecked, saveToLocal]
+    [lastChecked, saveToLocal, table]
   );
 
   // Mark all stickers for a team
@@ -197,12 +210,14 @@ export function useStickers() {
       const updatedStickers = { ...stickers };
       const teamStickers: any[] = [];
       const nowStr = new Date().toISOString();
+      const team = MOCK_TEAMS.find((t) => t.id === teamId);
+      const teamStickerCount = team ? getStickerCount(team) : STICKERS_PER_TEAM;
 
-      for (let i = 1; i <= STICKERS_PER_TEAM; i++) {
+      for (let i = 1; i <= teamStickerCount; i++) {
         const stickerId = `${teamId}_${i}`;
         const code = `${teamId} ${i}`;
         updatedStickers[stickerId] = true;
-        
+
         teamStickers.push({
           id: stickerId,
           team_id: teamId,
@@ -221,7 +236,7 @@ export function useStickers() {
 
       if (isSupabaseConfigured && supabase) {
         try {
-          const { error } = await supabase.from("stickers").upsert(teamStickers, { onConflict: "id" });
+          const { error } = await supabase.from(table).upsert(teamStickers, { onConflict: "id" });
           if (error) throw error;
         } catch (err) {
           console.error("Error marking all stickers in database, saving to LocalStorage:", err);
@@ -231,7 +246,7 @@ export function useStickers() {
         saveToLocal(updatedStickers, newRecent);
       }
     },
-    [stickers, lastChecked, saveToLocal]
+    [stickers, lastChecked, saveToLocal, table]
   );
 
   // Clear all stickers for a team
@@ -240,12 +255,14 @@ export function useStickers() {
       const updatedStickers = { ...stickers };
       const teamStickers: any[] = [];
       const nowStr = new Date().toISOString();
+      const team = MOCK_TEAMS.find((t) => t.id === teamId);
+      const teamStickerCount = team ? getStickerCount(team) : STICKERS_PER_TEAM;
 
-      for (let i = 1; i <= STICKERS_PER_TEAM; i++) {
+      for (let i = 1; i <= teamStickerCount; i++) {
         const stickerId = `${teamId}_${i}`;
         const code = `${teamId} ${i}`;
         updatedStickers[stickerId] = false;
-        
+
         teamStickers.push({
           id: stickerId,
           team_id: teamId,
@@ -263,7 +280,7 @@ export function useStickers() {
 
       if (isSupabaseConfigured && supabase) {
         try {
-          const { error } = await supabase.from("stickers").upsert(teamStickers, { onConflict: "id" });
+          const { error } = await supabase.from(table).upsert(teamStickers, { onConflict: "id" });
           if (error) throw error;
         } catch (err) {
           console.error("Error clearing stickers in database, saving to LocalStorage:", err);
@@ -273,12 +290,12 @@ export function useStickers() {
         saveToLocal(updatedStickers, newRecent);
       }
     },
-    [stickers, lastChecked, saveToLocal]
+    [stickers, lastChecked, saveToLocal, table]
   );
 
   // Compute album statistics
   const stats = useMemo<StickerStats>(() => {
-    const totalStickers = MOCK_TEAMS.length * STICKERS_PER_TEAM;
+    const totalStickers = MOCK_TEAMS.reduce((sum, team) => sum + getStickerCount(team), 0);
     let checkedCount = 0;
 
     // Count checked
@@ -292,7 +309,7 @@ export function useStickers() {
 
     MOCK_TEAMS.forEach((team) => {
       let teamChecked = 0;
-      for (let i = 1; i <= STICKERS_PER_TEAM; i++) {
+      for (let i = 1; i <= getStickerCount(team); i++) {
         if (stickers[`${team.id}_${i}`]) teamChecked++;
       }
       if (teamChecked > maxCheckedCount) {
@@ -307,6 +324,7 @@ export function useStickers() {
             name: (bestTeam as any).name,
             flag: (bestTeam as any).flag,
             count: maxCheckedCount,
+            total: getStickerCount(bestTeam as any),
           }
         : null;
 
@@ -322,14 +340,16 @@ export function useStickers() {
   // Check if a team has any stickers checked, and the count
   const getTeamProgress = useCallback(
     (teamId: string) => {
+      const team = MOCK_TEAMS.find((t) => t.id === teamId);
+      const total = team ? getStickerCount(team) : STICKERS_PER_TEAM;
       let checked = 0;
-      for (let i = 1; i <= STICKERS_PER_TEAM; i++) {
+      for (let i = 1; i <= total; i++) {
         if (stickers[`${teamId}_${i}`]) checked++;
       }
       return {
         checked,
-        total: STICKERS_PER_TEAM,
-        percentage: Math.round((checked / STICKERS_PER_TEAM) * 100),
+        total,
+        percentage: Math.round((checked / total) * 100),
       };
     },
     [stickers]
@@ -345,4 +365,13 @@ export function useStickers() {
     getTeamProgress,
     isLocalFallback: !isSupabaseConfigured,
   };
+}
+
+export function useStickers() {
+  return useStickerCollection({
+    table: "stickers",
+    storageKey: "copa2026_stickers",
+    recentStorageKey: "copa2026_recent",
+    realtimeChannel: "stickers-realtime",
+  });
 }
